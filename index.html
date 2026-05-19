@@ -97,7 +97,7 @@
     <script>
         let geojsonGlobal = null;
 
-        // Diccionario de palabras clave vinculadas al Folleto Oficial
+        // Base de datos inteligente vinculada a las palabras clave del KML
         const registroOficialPesca = [
             { palabraClave: "LADRA", casas: "Bar Cruz (Rábade)", telefono: "694462461" },
             { palabraClave: "RÁBADE", casas: "Bar Cruz (Rábade)", telefono: "694462461" },
@@ -254,10 +254,11 @@
 
                 const p = feature.properties;
                 const nombreDelTramo = p.TRAMO1 || p.name || "Couto";
+                const nombreDelRio = p.NOME || "";
                 
                 document.getElementById('modal-titulo').innerText = nombreDelTramo;
                 document.getElementById('info-tipo').innerText = p.TRAMO2 || "-";
-                document.getElementById('info-rio').innerText = `Río ${p.NOME || '-'} (${p.PROVINCIA || '-'})`;
+                document.getElementById('info-rio').innerText = `Río ${nombreDelRio || '-'} (${p.PROVINCIA || '-'})`;
                 
                 let limitesTxt = "";
                 if(p.L_SUPERIOR) limitesTxt += `Superior: ${p.L_SUPERIOR}\n`;
@@ -267,17 +268,16 @@
                 document.getElementById('info-lonxitude').innerText = p.LONXITUDE ? `${p.LONXITUDE} km` : "-";
                 document.getElementById('info-obs').innerText = p.OBS || "-";
 
-                // NUEVO BUSCADOR POR CONTENIDO (Flexible e inteligente)
+                // REVISIÓN CENTRALIZADA: Cruza tanto el Nombre del tramo como el Nombre del río
                 let expedicion = p.CASAS || p.CASA_EXPEDIDORA || "";
                 let numeroTel = p.TELEFONO || p.TEL || "";
 
-                // Convierte a mayúsculas el nombre del tramo para comparar sin errores
-                const nombreAnalisis = nombreDelTramo.toUpperCase();
+                // Creamos un bloque de texto conjunto en mayúsculas (ej: "RÍO LADRA PESCA SEN MORTE")
+                const textoAnalizar = `${nombreDelRio} ${nombreDelTramo}`.toUpperCase();
 
                 if (!expedicion) {
-                    // Recorre la lista buscando si alguna palabra clave está incluida en el nombre del tramo
                     for (let i = 0; i < registroOficialPesca.length; i++) {
-                        if (nombreAnalisis.includes(registroOficialPesca[i].palabraClave)) {
+                        if (textoAnalizar.includes(registroOficialPesca[i].palabraClave)) {
                             expedicion = registroOficialPesca[i].casas;
                             numeroTel = registroOficialPesca[i].telefono;
                             break;
