@@ -97,14 +97,18 @@
     <script>
         let geojsonGlobal = null;
 
-        // Base de datos inteligente vinculada a las palabras clave del KML
-        const registroOficialPesca = [
-            { palabraClave: "LADRA", casas: "Bar Cruz (Rábade)", telefono: "694462461" },
-            { palabraClave: "RÁBADE", casas: "Bar Cruz (Rábade)", telefono: "694462461" },
-            { palabraClave: "PÍGARA", casas: "Casa Alejandro (Begonte)", telefono: "982396160" },
-            { palabraClave: "CHANTADA", casas: "Restaurante A Gloria (Monforte)", telefono: "982401572" },
-            { palabraClave: "SALMEÁN", casas: "Centro de Precintaxe Oficial da Pontenova", telefono: "982294514" }
-        ];
+        // DICCIONARIO CORREGIDO: Con las etiquetas reales de tu My Maps
+        const registroOficialPesca = {
+            "Couto de Rábade": { casas: "Bar Cruz (Rábade)", telefono: "694462461" },
+            "Couto de Pígara": { casas: "Casa Alejandro (Begonte)", telefono: "982396160" },
+            "Couto de Chantada": { casas: "Restaurante A Gloria (Monforte)", telefono: "982401572" },
+            "Couto Salmeán": { casas: "Centro de Precintaxe Oficial da Pontenova", telefono: "982294514" },
+            
+            // Variantes exactas del Río Ladra según tus capturas de pantalla
+            "Couto de Pesca (Pesca sen morte)": { casas: "Bar Cruz (Rábade)", telefono: "694462461" },
+            "Couto de pesca (Pesca sen morte)": { casas: "Bar Cruz (Rábade)", telefono: "694462461" },
+            "Pesca sen morte": { casas: "Bar Cruz (Rábade)", telefono: "694462461" }
+        };
 
         const map = new maplibregl.Map({
             container: 'map',
@@ -254,11 +258,9 @@
 
                 const p = feature.properties;
                 const nombreDelTramo = p.TRAMO1 || p.name || "Couto";
-                const nombreDelRio = p.NOME || "";
-                
                 document.getElementById('modal-titulo').innerText = nombreDelTramo;
                 document.getElementById('info-tipo').innerText = p.TRAMO2 || "-";
-                document.getElementById('info-rio').innerText = `Río ${nombreDelRio || '-'} (${p.PROVINCIA || '-'})`;
+                document.getElementById('info-rio').innerText = `Río ${p.NOME || '-'} (${p.PROVINCIA || '-'})`;
                 
                 let limitesTxt = "";
                 if(p.L_SUPERIOR) limitesTxt += `Superior: ${p.L_SUPERIOR}\n`;
@@ -268,24 +270,16 @@
                 document.getElementById('info-lonxitude').innerText = p.LONXITUDE ? `${p.LONXITUDE} km` : "-";
                 document.getElementById('info-obs').innerText = p.OBS || "-";
 
-                // REVISIÓN CENTRALIZADA: Cruza tanto el Nombre del tramo como el Nombre del río
                 let expedicion = p.CASAS || p.CASA_EXPEDIDORA || "";
                 let numeroTel = p.TELEFONO || p.TEL || "";
 
-                // Creamos un bloque de texto conjunto en mayúsculas (ej: "RÍO LADRA PESCA SEN MORTE")
-                const textoAnalizar = `${nombreDelRio} ${nombreDelTramo}`.toUpperCase();
-
-                if (!expedicion) {
-                    for (let i = 0; i < registroOficialPesca.length; i++) {
-                        if (textoAnalizar.includes(registroOficialPesca[i].palabraClave)) {
-                            expedicion = registroOficialPesca[i].casas;
-                            numeroTel = registroOficialPesca[i].telefono;
-                            break;
-                        }
-                    }
+                // El cruce ahora se hace directo con el nombre exacto de tu mapa
+                if (!expedicion && registroOficialPesca[nombreDelTramo]) {
+                    expedicion = registroOficialPesca[nombreDelTramo].casas;
+                    numeroTel = registroOficialPesca[nombreDelTramo].telefono;
                 }
 
-                document.getElementById('info-casas').innerText = expedicion || "Non especificada / Consultar normativa Xunta";
+                document.getElementById('info-casas').innerText = expedicion || "Non especificada / Consultar Xunta";
                 
                 const botonLlamar = document.getElementById('enlace-llamada');
                 if (numeroTel) {
