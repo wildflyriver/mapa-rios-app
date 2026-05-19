@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ríos Gallegos® - Mapa Natural Pro</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800&display=swap" rel="stylesheet">
+    
+    <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
+    <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/togeojson/0.16.0/togeojson.min.js"></script>
+    <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+    
+    <style>
+        body, html { margin: 0; padding: 0; height: 100%; font-family: 'Montserrat', sans-serif; background-color: #f0f0f0; overflow: hidden; user-select: none; }
+        #map { height: 100vh; width: 100%; }
+        
+        #pantalla-inicio { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(135deg, #1e4620 0%, #0f2812 60%, #051206 100%); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; transition: opacity 0.3s ease; }
+        #titulo-app { color: white; font-size: 38px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; text-shadow: 0 3px 6px rgba(0,0,0,0.4); text-align: center; }
+        #subtitulo-app { color: rgba(255,255,255,0.85); font-size: 15px; margin-bottom: 60px; text-align: center; }
+        #icono-pez { font-size: 85px; color: white; margin-bottom: 60px; text-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+        #btn-pescar { background-color: #143d16; color: white; border: 2px solid rgba(255,255,255,0.25); padding: 18px 55px; font-size: 20px; font-weight: 600; font-family: 'Montserrat', sans-serif; border-radius: 50px; cursor: pointer; box-shadow: 0 6px 25px rgba(0,0,0,0.5); text-transform: uppercase; }
+        
+        /* Controles Flotantes */
+        #panel-controles { position: absolute; top: 20px; right: 20px; z-index: 1000; display: flex; flex-direction: column; gap: 15px; }
+        .tarjeta-menu { background-color: white; padding: 15px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); width: 260px; display: none; animation: fadeIn 0.3s ease; }
+        .tarjeta-menu h3 { margin: 0 0 10px 0; font-size: 14px; color: #1e4620; font-weight: 800; text-transform: uppercase; }
+        .tarjeta-menu select { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ccc; font-size: 13px; background-color: #fafafa; font-family: 'Montserrat', sans-serif; font-weight: 600; color: #333;}
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Botón Información */
+        #btn-info { position: absolute; bottom: 35px; left: 50%; transform: translateX(-50%); background-color: #4a0099; color: white; border: 2px solid white; padding: 16px 32px; font-size: 15px; font-weight: 800; border-radius: 50px; box-shadow: 0 6px 20px rgba(74, 0, 153, 0.6); cursor: pointer; display: none; z-index: 2000; text-transform: uppercase; }
+        
+        /* Modal Normativa */
+        #modal-info { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 25px; border-radius: 14px; box-shadow: 0 15px 40px rgba(0,0,0,0.4); z-index: 4000; width: 85%; max-width: 440px; display: none; flex-direction: column; gap: 12px; border-top: 8px solid #4a0099; max-height: 85vh; overflow-y: auto; }
+        #modal-info h2 { margin: 0; color: #1e4620; font-size: 18px; text-transform: uppercase; font-weight: 800; }
+        .badge-tipo { background-color: #4a0099; color: white; padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: 800; display: inline-block; margin-bottom: 5px;}
+        .info-bloque { background: #f7f9f7; padding: 12px; border-radius: 8px; font-size: 14px; color: #333; border-left: 3px solid #1e4620; }
+        .info-bloque strong { color: #1e4620; text-transform: uppercase; font-size: 11px; display: block; margin-bottom: 4px; }
+        #btn-cerrar-modal { background-color: #1e4620; color: white; border: none; padding: 14px; border-radius: 8px; font-weight: 800; cursor: pointer; margin-top: 5px; text-transform: uppercase;}
+    </style>
+</head>
+<body>
+
+    <div id="pantalla-inicio">
+        <div id="titulo-app">Ríos Gallegos®</div>
+        <div id="subtitulo-app">Mapa Cartográfico Real</div>
+        <div id="icono-pez">🐟</div>
+        <button id="btn-pescar" onclick="document.getElementById('pantalla-inicio').style.display='none'">A PESCAR</button>
+    </div>
+
+    <div id="panel-controles">
+        <div class="tarjeta-menu" id="menu-provincias" style="display:block;">
+            <h3>Ver Provincia</h3>
+            <select id="selector-provincia" onchange="enfocarProvincia(this.value)">
+                <option value="">Cargando KML...</option>
+            </select>
+        </div>
+        <div class="tarjeta-menu" id="menu-rios">
+            <h3>Seleccionar Río</h3>
+            <select id="selector-rios" onchange="seleccionarRioPrincipal(this.value)"></select>
+        </div>
+        <div class="tarjeta-menu" id="menu-tramos">
+            <h3>Tramos e Normativa</h3>
+            <select id="selector-tramos" onchange="enfocarTramo(this.value)"></select>
+        </div>
+    </div>
+
+    <button id="btn-info" onclick="document.getElementById('modal-info').style.display = 'flex';">NORMATIVA E LIMITES</button>
+
+    <div id="modal-info">
+        <h2 id="modal-titulo">Tramo</h2>
+        <div><span id="info-tipo" class="badge-tipo">-</span></div>
+        <div class="info-bloque"><strong>Río / Provincia</strong><span id="info-rio">-</span></div>
+        <div class="info-bloque"><strong>Límites do Tramo</strong><span id="info-limites">-</span></div>
+        <div class="info-bloque"><strong>Lonxitude</strong><span id="info-lonxitude">-</span></div>
+        <div class="info-bloque"><strong>Observacións / Normativa</strong><span id="info-obs">-</span></div>
+        <button id="btn-cerrar-modal" onclick="document.getElementById('modal-info').style.display = 'none';">CERRAR</button>
+    </div>
+
+    <div id="map"></div>
+    
+    <script>
+        let geojsonGlobal = null;
+
+        const map = new maplibregl.Map({
+            container: 'map',
+            style: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json', 
+            center: [-7.8660, 42.7550], zoom: 8, minZoom: 7.5, maxBounds: [[-10.5, 41.5], [-6.0, 44.2]]
+        });
+
+        map.on('load', () => {
+            // Limpiar asfalto e infraestructuras del mapa base
+            map.getStyle().layers.forEach(layer => {
+                if (layer.id.includes('road') || layer.id.includes('building') || layer.id.includes('transit')) {
+                    map.setLayoutProperty(layer.id, 'visibility', 'none');
+                }
+            });
+
+            // CARGA DINÁMICA DEL ARCHIVO KML CREADO EN GOOGLE MY MAPS
+            fetch('mapa_pesca.kml')
+                .then(res => res.text())
+                .then(kmlText => {
+                    const parser = new DOMParser();
+                    const kml = parser.parseFromString(kmlText, 'text/xml');
+                    geojsonGlobal = toGeoJSON.kml(kml);
+                    
+                    // Extraer los datos guardados en la tabla de MyMaps (Nombre, Provincia, etc.)
+                    geojsonGlobal.features.forEach((f, index) => {
+                        f.properties.appId = index; 
+                        if (f.properties.description) {
+                            const lines = f.properties.description.split('<br>');
+                            lines.forEach(line => {
+                                const cleanLine = line.replace(/<!\[CDATA\[|\]\]>/g, '').trim();
+                                const parts = cleanLine.split(/\s{2,}/); // Separa por dobles espacios (formato MyMaps)
+                                if (parts.length >= 2) {
+                                    f.properties[parts[0]] = parts[1]; // Inyecta la propiedad al mapa
+                                }
+                            });
+                        }
+                    });
+
+                    // Inyectar el vector real con las curvas en el motor gráfico
+                    map.addSource('rutas-reales', { 'type': 'geojson', 'data': geojsonGlobal });
+                    map.addLayer({
+                        'id': 'capa-rutas',
+                        'type': 'line',
+                        'source': 'rutas-reales',
+                        'layout': { 'line-join': 'round', 'line-cap': 'round' },
+                        'paint': { 
+                            'line-color': '#4a0099', 
+                            'line-width': 7,
+                            'line-opacity': 0 // Oculto hasta que elijas río o tramo
+                        }
+                    });
+
+                    // Crear los menús basados en lo que hay en el KML
+                    inicializarProvincias();
+                })
+                .catch(err => {
+                    alert("Por favor, renombra el archivo que subiste a 'mapa_pesca.kml' y mételo junto al index.html");
+                });
+        });
+
+        // 1. GENERAR PROVINCIAS LEYENDO EL KML AUTOMÁTICAMENTE
+        function inicializarProvincias() {
+            const provSet = new Set();
+            geojsonGlobal.features.forEach(f => {
+                if (f.properties.PROVINCIA) provSet.add(f.properties.PROVINCIA);
+            });
+            
+            const selProv = document.getElementById('selector-provincia');
+            selProv.innerHTML = '<option value="">Toda Galicia</option>';
+            Array.from(provSet).sort().forEach(p => {
+                selProv.innerHTML += `<option value="${p}">${p}</option>`;
+            });
+        }
+
+        // 2. FILTRAR AL SELECCIONAR PROVINCIA
+        function enfocarProvincia(prov) {
+            document.getElementById('menu-tramos').style.display = 'none';
+            document.getElementById('btn-info').style.display = 'none';
+            map.setPaintProperty('capa-rutas', 'line-opacity', 0);
+            
+            if (!prov) {
+                map.flyTo({ center: [-7.8660, 42.7550], zoom: 8 });
+                document.getElementById('menu-rios').style.display = 'none';
+                return;
+            }
+
+            const riosSet = new Set();
+            geojsonGlobal.features.forEach(f => {
+                if (f.properties.PROVINCIA === prov && f.properties.NOME) {
+                    riosSet.add(f.properties.NOME);
+                }
+            });
+
+            const selRios = document.getElementById('selector-rios');
+            selRios.innerHTML = '<option value="">Elixe un río...</option>';
+            Array.from(riosSet).sort().forEach(r => {
+                selRios.innerHTML += `<option value="${r}">Río ${r}</option>`;
+            });
+            
+            document.getElementById('menu-rios').style.display = 'block';
+        }
+
+        // 3. ENFOCAR EL RÍO COMPLETO Y LISTAR SUS TRAMOS DEL KML
+        function seleccionarRioPrincipal(rio) {
+            document.getElementById('btn-info').style.display = 'none';
+            if (!rio) {
+                document.getElementById('menu-tramos').style.display = 'none';
+                map.setPaintProperty('capa-rutas', 'line-opacity', 0);
+                return;
+            }
+
+            const riosFeatures = [];
+            const selTramos = document.getElementById('selector-tramos');
+            selTramos.innerHTML = '<option value="">Visión global do río...</option>';
+            
+            geojsonGlobal.features.forEach(f => {
+                if (f.properties.NOME === rio) {
+                    riosFeatures.push(f);
+                    const nombre = f.properties.TRAMO1 || f.properties.name || "Tramo";
+                    const tipo = f.properties.TRAMO2 || "";
+                    selTramos.innerHTML += `<option value="${f.properties.appId}">${nombre} (${tipo})</option>`;
+                }
+            });
+            
+            document.getElementById('menu-tramos').style.display = 'block';
+
+            // Mostrar todos los tramos de este río y volar hacia ellos
+            if(riosFeatures.length > 0) {
+                map.setFilter('capa-rutas', ['==', 'NOME', rio]);
+                map.setPaintProperty('capa-rutas', 'line-color', '#1e4620'); // Verde militar para visión global
+                map.setPaintProperty('capa-rutas', 'line-width', 4);
+                map.setPaintProperty('capa-rutas', 'line-opacity', 0.8);
+                
+                // Super Zoom automático usando Turf.js para leer los límites reales
+                const bbox = turf.bbox(turf.featureCollection(riosFeatures));
+                map.fitBounds(bbox, { padding: 40, duration: 1200 });
+            }
+        }
+
+        // 4. AISLAR UN TRAMO ESPECÍFICO
+        function enfocarTramo(idStr) {
+            if (idStr === "") {
+                seleccionarRioPrincipal(document.getElementById('selector-rios').value);
+                return;
+            }
+
+            const idx = parseInt(idStr);
+            const feature = geojsonGlobal.features.find(f => f.properties.appId === idx);
+
+            if (feature) {
+                // Filtro para mostrar SOLO el tramo seleccionado
+                map.setFilter('capa-rutas', ['==', 'appId', idx]);
+                map.setPaintProperty('capa-rutas', 'line-color', '#4a0099'); // Violeta profundo
+                map.setPaintProperty('capa-rutas', 'line-width', 8);
+                map.setPaintProperty('capa-rutas', 'line-opacity', 1);
+
+                // Volar calcando milimetricamente las curvas del KML
+                const bbox = turf.bbox(feature);
+                map.fitBounds(bbox, { padding: 60, duration: 1200 });
+
+                // Llenar Modal de Información con los datos extraídos
+                const p = feature.properties;
+                document.getElementById('modal-titulo').innerText = p.TRAMO1 || p.name || "Couto";
+                document.getElementById('info-tipo').innerText = p.TRAMO2 || "-";
+                document.getElementById('info-rio').innerText = `Río ${p.NOME || '-'} (${p.PROVINCIA || '-'})`;
+                
+                let limitesTxt = "";
+                if(p.L_SUPERIOR) limitesTxt += `Superior: ${p.L_SUPERIOR}\n`;
+                if(p.L_INFERIOR) limitesTxt += `Inferior: ${p.L_INFERIOR}`;
+                document.getElementById('info-limites').innerText = limitesTxt !== "" ? limitesTxt : "-";
+                
+                document.getElementById('info-lonxitude').innerText = p.LONXITUDE ? `${p.LONXITUDE} km` : "-";
+                document.getElementById('info-obs').innerText = p.OBS || "-";
+
+                document.getElementById('btn-info').style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>
