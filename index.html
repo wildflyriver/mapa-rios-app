@@ -41,6 +41,10 @@
         .info-bloque { background: #f7f9f7; padding: 12px; border-radius: 8px; font-size: 14px; color: #333; border-left: 3px solid #1e4620; }
         .info-bloque strong { color: #1e4620; text-transform: uppercase; font-size: 11px; display: block; margin-bottom: 4px; }
         #btn-cerrar-modal { background-color: #1e4620; color: white; border: none; padding: 14px; border-radius: 8px; font-weight: 800; cursor: pointer; margin-top: 5px; text-transform: uppercase;}
+        
+        /* Botón de llamada telefónica */
+        .btn-llamada { background-color: #2e7d32; color: white !important; padding: 12px; border-radius: 8px; text-align: center; text-decoration: none; font-weight: 800; display: none; margin-top: 10px; text-transform: uppercase; border: 2px solid #1b5e20; box-shadow: 0 4px 10px rgba(46,125,50,0.3); transition: transform 0.1s; font-size: 13px; letter-spacing: 0.5px; }
+        .btn-llamada:active { transform: scale(0.97); }
     </style>
 </head>
 <body>
@@ -78,6 +82,13 @@
         <div class="info-bloque"><strong>Límites do Tramo</strong><span id="info-limites">-</span></div>
         <div class="info-bloque"><strong>Lonxitude</strong><span id="info-lonxitude">-</span></div>
         <div class="info-bloque"><strong>Observacións / Normativa</strong><span id="info-obs">-</span></div>
+        
+        <div class="info-bloque">
+            <strong>Expedición de Permisos</strong>
+            <span id="info-casas">-</span>
+            <a id="enlace-llamada" href="#" class="btn-llamada">📞 CHAMAR AGORA</a>
+        </div>
+        
         <button id="btn-cerrar-modal" onclick="document.getElementById('modal-info').style.display = 'none';">CERRAR</button>
     </div>
 
@@ -85,6 +96,29 @@
     
     <script>
         let geojsonGlobal = null;
+
+        // Base de datos de Expedición cruzada con la Guía de Pesca 2026
+        const registroOficialPesca = {
+            "Couto de Rábade": { casas: "Bar Cruz (Rábade)", telefono: "694462461" },
+            "Rábade": { casas: "Bar Cruz (Rábade)", telefono: "694462461" },
+            "Couto de Pígara": { casas: "Casa Alejandro (Begonte)", telefono: "982396160" },
+            "Pígara": { casas: "Casa Alejandro (Begonte)", telefono: "982396160" },
+            "Couto de Chantada": { casas: "Restaurante A Gloria (Monforte)", telefono: "982401572" },
+            "Chantada": { casas: "Restaurante A Gloria (Monforte)", telefono: "982401572" },
+            "Couto Salmeán": { casas: "Centro de Precintaxe Oficial da Pontenova", telefono: "982294514" },
+            "Salmeán": { casas: "Centro de Precintaxe Oficial da Pontenova", telefono: "982294514" },
+            "Couto de Asma": { casas: "Restaurante A Gloria (Monforte de Lemos)", telefono: "982401572" },
+            "Asma": { casas: "Restaurante A Gloria (Monforte de Lemos)", telefono: "982401572" },
+            "A Laracha": { casas: "Mesón O Cancelo (A Laracha)", telefono: "981605422" },
+            "Traba": { casas: "Bar O Pinar (Lousame)", telefono: "981820492" },
+            "Celeiro": { casas: "Bar Mundial (Mondoñedo)", telefono: "982521011" },
+            "Mondoñedo": { casas: "Bar Mundial (Mondoñedo)", telefono: "982521011" },
+            "As Nogais": { casas: "Bar Paco (As Nogais)", telefono: "982364012" },
+            "A Ponte de Neibó": { casas: "Cafetería La Huerta (Marín)", telefono: "986881122" },
+            "Pontedeva": { casas: "Bar O Puente (Pontedeva)", telefono: "988488111" },
+            "Lagoas": { casas: "Bar A Raxeira (Cerdedo)", telefono: "986753012" },
+            "O Carballiño": { casas: "Cafetería Peñas (O Carballiño)", telefono: "988271112" }
+        };
 
         const map = new maplibregl.Map({
             container: 'map',
@@ -247,7 +281,9 @@
 
                 // Llenar Modal de Información con los datos extraídos
                 const p = feature.properties;
-                document.getElementById('modal-titulo').innerText = p.TRAMO1 || p.name || "Couto";
+                const nombreDelTramo = p.TRAMO1 || p.name || "Couto";
+                
+                document.getElementById('modal-titulo').innerText = nombreDelTramo;
                 document.getElementById('info-tipo').innerText = p.TRAMO2 || "-";
                 document.getElementById('info-rio').innerText = `Río ${p.NOME || '-'} (${p.PROVINCIA || '-'})`;
                 
@@ -258,6 +294,26 @@
                 
                 document.getElementById('info-lonxitude').innerText = p.LONXITUDE ? `${p.LONXITUDE} km` : "-";
                 document.getElementById('info-obs').innerText = p.OBS || "-";
+
+                // LÓGICA DE EXTRACCIÓN DE CASAS EXPEDIDORAS Y TELÉFONOS
+                let expedicion = p.CASAS || p.CASA_EXPEDIDORA || "";
+                let numeroTel = p.TELEFONO || p.TEL || "";
+
+                if (!expedicion && registroOficialPesca[nombreDelTramo]) {
+                    expedicion = registroOficialPesca[nombreDelTramo].casas;
+                    numeroTel = registroOficialPesca[nombreDelTramo].telefono;
+                }
+
+                document.getElementById('info-casas').innerText = expedicion || "Non especificada / Consultar normativa Xunta";
+                
+                // Mostrar u ocultar el botón verde si hay número de teléfono
+                const botonLlamar = document.getElementById('enlace-llamada');
+                if (numeroTel) {
+                    botonLlamar.href = "tel:" + numeroTel.replace(/\s+/g, '');
+                    botonLlamar.style.display = 'block';
+                } else {
+                    botonLlamar.style.display = 'none';
+                }
 
                 document.getElementById('btn-info').style.display = 'block';
             }
